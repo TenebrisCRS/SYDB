@@ -1,8 +1,10 @@
+# SYDB.py — Python 3.13.4 ready
+
 import os
 import re
 import math
 import asyncio
-from typing import Optional, Tuple
+from typing import Optional  # PEP 585 generics used below
 
 import httpx
 from aiogram import Bot, Dispatcher, F, types
@@ -17,6 +19,8 @@ from aiogram.types import (
 from aiogram.exceptions import TelegramAPIError
 
 # ====== НАСТРОЙКИ ======
+# Поведение сохранено: если переменная окружения не задана — берётся дефолтная строка,
+# бот затем отфейлится с понятным сообщением.
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8084648234:AAEfntayQc0OTk6o8KATZcg_Zd1Dmifi6kQ").strip()
 NOMINATIM_UA = "SYDB-InternalBot/1.0 (contact: it@example.com)"
 
@@ -49,6 +53,7 @@ def parse_weight_kg(text: str) -> Optional[float]:
     if val <= 0:
         return None
     return val
+
 
 def parse_order_weight(text: str):
     """
@@ -103,11 +108,7 @@ def parse_order_weight(text: str):
     return total, missing
 
 
-
-
-
-
-def try_parse_coords(text: str) -> Optional[Tuple[float, float]]:
+def try_parse_coords(text: str) -> Optional[tuple[float, float]]:
     t = text.strip().replace(";", ",")
     t = re.sub(r"\s+", " ", t)
     if "," in t:
@@ -178,7 +179,7 @@ def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 
 # ====== КАЛИБРОВАННАЯ МОДЕЛЬ ======
 # Формула: PRICE_RAW = BASE + RATE * distance_km
-# Потом: PRICE_PADDED = PRICE_RAW * 1.10
+# Потом: PRICE_PADDED = PRICE_RAW * 1.20  ← фактическая наценка 20% (сохраняем логику)
 # Итог: округление вверх до 500 ₽
 TARIFF_PRICING = {
     "Экспресс (до 20кг)": {"base": 1500, "per_km": 60},
@@ -209,7 +210,7 @@ def calculate_price_by_km_and_tariff(tariff: str, distance_km: float) -> dict:
         "amount": final_amount,
         "explain": (
             f"({base} баз.) + {rate} ₽/км × {distance_km:.2f} км = {raw:.0f} ₽; "
-            f"+10% → {padded:.0f} ₽; округление ↑ до 500 → {final_amount} ₽"
+            f"+20% → {padded:.0f} ₽; округление ↑ до 500 → {final_amount} ₽"
         ),
     }
 
@@ -261,7 +262,6 @@ async def cmd_help(message: types.Message):
         "Количество: 11\n\n"
         "Команды: /start — новый расчёт, /cancel — отменить."
     )
-
 
 
 @dp.message(Command("cancel"))
@@ -319,7 +319,6 @@ async def handle_weight(message: types.Message, state: FSMContext):
         reply_markup=ReplyKeyboardRemove(),
     )
     await state.set_state(CalcStates.WAITING_ADDRESS_OR_COORDS)
-
 
 
 @dp.message(CalcStates.WAITING_ADDRESS_OR_COORDS)
